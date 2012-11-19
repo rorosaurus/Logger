@@ -1,0 +1,161 @@
+-- replant saplings (also account for running out of saplings)
+-- returning payload
+-- collect dropped saplings
+-- stop going up once you stop hitting wood
+
+tArgs = { ... }
+if #tArgs ~= 1 then
+	print( "Usage: logger <numOfTrees>" )
+	return
+end
+
+size = tonumber( tArgs[1] )
+if size < 1 then
+	print( "Number of trees must be positive" )
+	return
+end
+
+-- note: program assumes saplings are rubber and have 2 blocks inbetween them
+position = 0
+-- position zero will be our home base.  we will start and return here.
+
+function setup()
+	print("Please enter the new number of trees")
+	newSize = read()
+	if(tonumber(newSize) < 1) then
+		print("Invalid number of trees.  Please try again.")
+		setup()
+	else
+		size = tonumber(newSize)
+		print("Number of trees changed to " .. tostring(size))
+	end
+	menu()
+end
+
+function plant()
+	--todo: add function
+	menu()
+end
+
+function safeMoveForward()
+	while(not turtle.forward()) do end
+end
+
+-- consumes the tree directly in front of the turtle and ends with the turtle occupying where the tree was
+function logTree()
+	turtle.dig()
+	safeMoveForward()
+	while (turtle.detectUp()) do
+		turtle.digUp()
+		turtle.up()
+	end
+	while (not turtle.detectDown()) do
+		turtle.down()
+	end
+	turtle.digDown()
+end
+
+-- this function starts logging
+function initLog()
+	-- we start at position 0.  so trees will be at 1, 4, 7, 10, etc.
+	-- don't go further
+	print("Starting logging process...")
+	while(position < size*3) do
+		if(turtle.detect()) then
+			logTree()
+		end
+		-- either way, move forward and properly increment position
+		safeMoveForward()
+	end
+	print("Logging process completed")
+	menu()
+end
+
+-- this function never stops logging
+function infiniLog()
+	checkSlots()
+	-- we start at position 0.  so trees will be at 1, 4, 7, 10, etc.
+	-- don't go further
+	print("Starting infini logging process...")
+	while(true) do
+		while(position < size*3) do
+			if(turtle.detect()) then
+				logTree()
+				position = position + 1
+			end
+			-- either way, move forward and properly increment position
+			safeMoveForward()
+			position = position + 1
+		end
+		turtle.turnRight()
+		turtle.turnRight()
+		while(position > 0) do
+			if(turtle.detect()) then
+				logTree()
+				position = position - 1
+			end
+			-- either way, move forward and properly increment position
+			safeMoveForward()
+			position = position - 1
+		end
+		turtle.turnRight()
+		turtle.turnRight()
+	end
+	print("Logging process completed")
+	menu()
+end
+
+function checkSlots()
+	print("Checking slots...")
+	valid = true
+	-- check slot 1 for at least one item
+	numOfSaps = turtle.getItemCount(1)
+	if(numOfSaps < 1) then
+		print("Please add saplings to the first slot")
+		valid = false
+	end
+	numOfWood = turtle.getItemCount(2)
+	if(numOfWood < 1) then
+		print("Please add the appropriate wood to the second slot")
+		valid = false
+	end
+	if(valid) then 
+		print("Slots are filled.")
+		print("Does slot 1 contain saplings?")
+		answer = read()
+		if(answer == "yes" or answer == "YES" or answer == "y" or answer == "Y") then
+			print("Does slot 2 contain the wood of that sapling type?")
+			answer = read()
+			if(answer == "yes" or answer == "YES" or answer == "y" or answer == "Y") then
+				print("Slots are verified.  Continuing.")
+				return
+			else menu()
+			end
+		else menu()
+		end
+	else menu()
+	end
+end
+
+function menu()
+	print("Number of trees currently set to " .. tostring(size))
+	print("Please enter a command")
+	print("setup - change number of trees")
+	print("plant - plant trees")
+	print("log - cut down and replace trees")
+	print("exit - close the program")
+	command = read()
+	if(command == "setup") then setup()
+	else if(command == "plant") then safeMoveForward()
+	else if(command == "log") then infiniLog()
+	else if(command == "exit") then return
+	else
+		print("Invalid selection.  Please try again.")
+		menu()
+	end
+	end
+	end
+	end
+end
+
+menu()
