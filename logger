@@ -1,7 +1,6 @@
--- replant saplings (also account for running out of saplings)
--- returning payload
--- collect dropped saplings
--- stop going up once you stop hitting wood
+-- set up wireless notification!
+-- there's no way to determine if we've picked up a random block, we might not end when all slots are as full as they'll get..
+
 
 tArgs = { ... }
 if #tArgs ~= 1 then
@@ -14,6 +13,8 @@ if size < 1 then
 	print( "Number of trees must be positive" )
 	return
 end
+
+hasSaplings = true
 
 -- note: program assumes saplings are rubber and have 2 blocks inbetween them
 position = 0
@@ -32,20 +33,18 @@ function setup()
 	menu()
 end
 
-function plant()
-	--todo: add function
-	menu()
-end
-
 function safeMoveForward()
-	while(not turtle.forward()) do end
+	while(not turtle.forward()) do
+		turtle.dig()
+	end
 end
 
 -- consumes the tree directly in front of the turtle and ends with the turtle occupying where the tree was
 function logTree()
 	turtle.dig()
 	safeMoveForward()
-	while (turtle.detectUp()) do
+	turtle.select(2)
+	while (turtle.compareUp()) do
 		turtle.digUp()
 		turtle.up()
 	end
@@ -53,35 +52,33 @@ function logTree()
 		turtle.down()
 	end
 	turtle.digDown()
-end
-
--- this function starts logging
-function initLog()
-	-- we start at position 0.  so trees will be at 1, 4, 7, 10, etc.
-	-- don't go further
-	print("Starting logging process...")
-	while(position < size*3) do
-		if(turtle.detect()) then
-			logTree()
+	if(hasSaplings) then
+		turtle.select(1)
+		turtle.placeDown()
+		if(turtle.getItemCount(1) == 1) then
+			hasSaplings = false
 		end
-		-- either way, move forward and properly increment position
-		safeMoveForward()
 	end
-	print("Logging process completed")
-	menu()
 end
 
--- this function never stops logging
-function infiniLog()
+-- this function loops the logging until out of saplings
+function loopedLog()
 	checkSlots()
-	-- we start at position 0.  so trees will be at 1, 4, 7, 10, etc.
+	-- we start at position 0.  so trees will be at 2, 5, 8, 11, etc.
 	-- don't go further
-	print("Starting infini logging process...")
-	while(true) do
+	shouldContinue = true
+	print(tostring(hasSaplings))
+	print("Starting logging process...")
+	turtle.up()
+	while(shouldContinue) do
 		while(position < size*3) do
-			if(turtle.detect()) then
+			turtle.select(2)
+			if(turtle.compare()) then
 				logTree()
 				position = position + 1
+			else if (math.floor(position/3)*3+2 == position) then
+				placeSaplingBelow()
+			end
 			end
 			-- either way, move forward and properly increment position
 			safeMoveForward()
@@ -90,9 +87,13 @@ function infiniLog()
 		turtle.turnRight()
 		turtle.turnRight()
 		while(position > 0) do
-			if(turtle.detect()) then
+			turtle.select(2)
+			if(turtle.compare()) then
 				logTree()
 				position = position - 1
+			else if (math.floor(position/3)*3+2 == position) then
+				placeSaplingBelow()
+			end
 			end
 			-- either way, move forward and properly increment position
 			safeMoveForward()
@@ -100,8 +101,59 @@ function infiniLog()
 		end
 		turtle.turnRight()
 		turtle.turnRight()
+		if(not hasSaplings or (
+		turtle.getItemSpace(2) == 0 and
+		turtle.getItemSpace(3) == 0 and
+		turtle.getItemSpace(4) == 0 and
+		turtle.getItemSpace(5) == 0 and
+		turtle.getItemSpace(6) == 0 and
+		turtle.getItemSpace(7) == 0 and
+		turtle.getItemSpace(8) == 0 and
+		turtle.getItemSpace(9) == 0)) then
+			-- we are out of saplings OR full of wood
+			shouldContinue = false
+		end
 	end
+	turtle.down()
+	notify(true)
 	print("Logging process completed")
+	menu()
+end
+
+function placeSaplingBelow()
+	turtle.select(1)
+	if(not turtle.compareDown()) then
+		turtle.digDown()
+	end
+	if(hasSaplings) then
+		turtle.select(1)
+		turtle.placeDown()
+		if(turtle.getItemCount(1) == 1) then
+			hasSaplings = false
+		end
+	end
+end
+
+function notify(value)
+	redstone.setOutput("bottom", value)
+	--also notify wirelessly
+end
+
+function dropPayload()
+	print("Dropping payload")
+	for i = 3,9 do
+		turtle.select(i)
+		if(turtle.getItemCount(i) > 0) then
+			turtle.drop()
+		end
+	end
+	turtle.select(2)
+	numWood = turtle.getItemCount(2)
+	if(numWood > 0) then
+		turtle.drop(numWood-1)
+	end
+	print("Payload Dropped")
+	notify(false)
 	menu()
 end
 
@@ -128,6 +180,7 @@ function checkSlots()
 			answer = read()
 			if(answer == "yes" or answer == "YES" or answer == "y" or answer == "Y") then
 				print("Slots are verified.  Continuing.")
+				hasSaplings = turtle.getItemCount(1) > 1
 				return
 			else menu()
 			end
@@ -141,13 +194,13 @@ function menu()
 	print("Number of trees currently set to " .. tostring(size))
 	print("Please enter a command")
 	print("setup - change number of trees")
-	print("plant - plant trees")
+	print("drop - drop payload")
 	print("log - cut down and replace trees")
 	print("exit - close the program")
 	command = read()
 	if(command == "setup") then setup()
-	else if(command == "plant") then safeMoveForward()
-	else if(command == "log") then infiniLog()
+	else if(command == "drop") then dropPayload()
+	else if(command == "log") then loopedLog()
 	else if(command == "exit") then return
 	else
 		print("Invalid selection.  Please try again.")
